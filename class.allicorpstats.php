@@ -51,11 +51,16 @@ class AlliCorpStats
             $corps = array();
             foreach ((array )$myAlliance['memberCorps'] as $tempcorp) {
                 $myCorpAPI->setCorpID($tempcorp['corporationID']);
-                $result .= $myCorpAPI->fetchXML();
+                if($myCorpAPI->fetchXML() === FALSE) {
+                  continue;
+                }
 
                 // Check if corp is known to EDK DB, if not, add it. (hackign up to work with new classes in edk4)
                 $tempMyCorp->Corporation();
-                $this->corpid = $tempMyCorp->lookup($myCorpAPI->getCorporationName());                
+                $this->corpid = $tempMyCorp->lookup($myCorpAPI->getCorporationName());
+                if($this->corpid === FALSE) {
+                  continue;
+                }
                 if ($this->corpid->getID() == 0) {
                     $tempMyCorp->add($myCorpAPI->getCorporationName(), $alliance, substr($tempcorp['startDate'],
                         0, 16));
@@ -239,7 +244,9 @@ class AlliCorpStats
 
             foreach ($membercorps as $corp) {
                 $myCorpAPI->setCorpID($corp['corpEVEID']);
-                $result .= $myCorpAPI->fetchXML();
+                if($myCorpAPI->fetchXML() === FALSE) {
+                  continue;
+                }
 
                 // Check if corp is known to EDK DB, if not, add it.
                 $tempMyCorp->Corporation();
