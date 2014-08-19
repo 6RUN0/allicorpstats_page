@@ -1,212 +1,312 @@
 <?php
 
-require_once ('common/includes/class.killsummarytablepublic.php');
-require_once ('common/includes/class.killlist.php');
-require_once ('common/includes/class.killlisttable.php');
-require_once ('common/includes/class.contract.php');
-require_once ('common/includes/class.toplist.php');
-require_once ('common/includes/class.bargraph.php');
 require_once ('mods/allicorpstats_page/class.allicorpstats.php');
 
-// set some dates incase some wants to view stats for any week/month/year
-$week = $_GET['w'];
-$year = $_GET['y'];
-$month = $_GET['m'];
+class pCorpStats extends pageAssembly {
 
-if ($week == '')
-    $week = kbdate('W');
+  private $day;
+  private $week;
+  private $month;
+  private $year;
 
-if ($year == '')
-    $year = kbdate('Y');
+  private $daterange;
 
-if ($month == '')
-    $month = kbdate('m');
+  private $order;
 
-// start the new page and give it a title
-$page = new Page('Alliance Corp Statistics');
+  private $all_id;
+  private $all_external_id;
 
-if (isset($_GET['all_id']) and is_numeric($_GET['all_id'])){
-    //trust user input, lol no
-    $id = addslashes($_GET['all_id']);
-} else {
-    //else we grab the base internally set ID
-    $id = config::get('cfg_allianceid');
-    $id = $id[0];
-}
+  private $menuOptions = array();
 
-$corpStats = new AlliCorpStats($id);
+  private $url;
+  private $length_uri;
 
-$daterange_year = $daterange_month = $daterange_week = false;
+  public $page;
 
-// start a switch to allow for viewing of other stats such as weekly, monthly etc
-switch ($_GET['daterange']) {
-    case 'weekly':
+  function __construct() {
+    parent::__construct();
+    $this->queue('start');
+    $this->queue('corpStatsTable');
+  }
 
-        $corpStats->setWeek($week);
-        $corpStats->setYear($year);
-        $smarty->assign('datefilter', "Week {$week}");
+  function start() {
 
-        $daterange_week = true;
+    $this->page = new Page();
 
+    $this->all_id = (int) edkURI::getArg('all_id');
+    $this->all_external_id = (int) edkURI::getArg('all_ext_id');
+    $position = 1;
+    if (!$this->all_id && !$this->all_external_id) {
+      $id = edkURI::getArg('id', $position);
+      if(is_numeric($id)) {
+        $id = (int) $id;
+        $position++;
+        if ($this->is_external_id($id)) {
+          $this->all_external_id = $id;
+        }
+        else {
+          $this->all_id = $id;
+        }
+      }
+    }
+
+    $daterange = edkURI::getArg('daterange', $position);
+    switch ($daterange) {
+      case 'weekly':
+        $this->daterange = $daterange;
+        $this->week = $this->extractDate('w', $position + 1, 'W');
+        $this->year = $this->extractDate('y', $position + 2, 'Y');
         break;
-
-
-    case 'monthly':
-
-        $corpStats->setMonth($month);
-        $corpStats->setYear($year);
-        $timestamp = mktime(0, 0, 0, $month, 1, 2005);
-        $smarty->assign('datefilter', date("F", $timestamp));
-
-        $daterange_month = true;
-
+      case 'monthly':
+        $this->daterange = $daterange;
+        $this->month = $this->extractDate('m', $position + 1, 'm');
+        $this->year = $this->extractDate('y', $position + 2, 'Y');
         break;
-
-
-    case 'yearly':
-
-        $corpStats->setYear($year);
-        $smarty->assign('datefilter', "{$year}");
-
-        $daterange_year = true;
-
+      case 'yearly':
+        $this->daterange = $daterange;
+        $this->year = $this->extractDate('y', $position + 1, 'Y');
         break;
+      case 'alltime':
+        $this->daterange = $daterange;
+        break;
+      default:
+        $this->month = kbdate('m');
+        $this->week = kbdate('W');
+        $this->year = kbdate('Y');
+        $this->daterange = config::get('allicorpstatspage_datefilter');
+    }
 
+    $this->uri = edkURI::parseURI();
+    $this->length_uri = count($this->uri);
 
-    case 'alltime':
+    $order = edkURI::getArg('order');
+    if($this->orderValid($order)) {
+      $this->order = $order;
+    }
 
+    //var_dump($this->order);
+    //var_dump($this->all_id);
+    //var_dump($this->all_external_id);
+    //var_dump($this->daterange);
+    //var_dump($this->week);
+    //var_dump($this->year);
+    //var_dump($this->month);
+
+  }
+
+  private function is_external_id($id) {
+    // And now a bit of magic to test if this is an external ID
+    if (($id > 500000 && $id < 500021) || $id > 1000000) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  private function extractDate($name, $position, $format) {
+
+    $result = edkURI::getArg($name, $position);
+    if(!is_numeric($result)) {
+      $result = kbdate($format);
+    }
+    return $result;
+
+  }
+
+  private function orderValid($order = NULL) {
+    $valid_args = array(
+      'nameasc',
+      'tickerasc',
+      'ceodesc',
+      'membersdesc',
+      'memberactsdesc',
+      'memberactprozsdesc',
+      'killsdesc',
+      'killiskdesc',
+      'lossesdesc',
+      'lossiskdesc',
+      'effdesc',
+      'killrq',
+    );
+    if (isset($order) && in_array($order, $valid_args)) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  function corpStatsTable() {
+
+    global $smarty;
+
+    if($this->all_id) {
+      $id = $this->all_id;
+    }
+    elseif($this->all_external_id) {
+      $id = $this->all_external_id;
+    }
+    else {
+      $id = config::get('cfg_allianceid');
+      $id = $id[0];
+    }
+
+    $corpStats = new AlliCorpStats($id);
+
+    $corpStats->setOrder($this->order);
+    $corpStats->setWeek($this->week);
+    $corpStats->setMonth($this->month);
+    $corpStats->setYear($this->year);
+
+    switch($this->daterange) {
+      case 'weekly':
+       $smarty->assign('datefilter', "Week {$this->week}");
+        break;
+      case 'monthly':
+        $date = date_create($this->year . '-' . $this->month);
+        $smarty->assign('datefilter', date_format($date, 'F, Y'));
+        break;
+      case 'yearly':
+        $smarty->assign('datefilter', "{$this->year}");
+        break;
+      case 'alltime':
         $corpStats->setStartDate('2003-01-01 00:00:00');
         $smarty->assign('datefilter', "All-Time");
-
         break;
+    }
 
+    return $corpStats->generate();
 
-    default:
+  }
 
-        // get the date range based on what the admin selected in admin panel
-        if (config::get('allicorpstatspage_datefilter') == 'weekly') {
-            $corpStats->setWeek($week);
-            $corpStats->setYear($year);
-            $smarty->assign('datefilter', "Week {$week}");
-            $daterange_week = true;
-        } elseif (config::get('allicorpstatspage_datefilter') == 'monthly') {
-            $corpStats->setMonth($month);
-            $corpStats->setYear($year);
-            $timestamp = mktime(0, 0, 0, $month, 1, 2005);
-            $smarty->assign('datefilter', date("F", $timestamp));
-            $daterange_month = true;
-        } elseif (config::get('allicorpstatspage_datefilter') == 'yearly') {
-            $corpStats->setYear($year);
-            $smarty->assign('datefilter', "{$year}");
-            $daterange_year = true;
-        } else {
-            $corpStats->setStartDate('2003-01-01 00:00:00');
-            $smarty->assign('datefilter', "All-Time");
+	function context() {
+		parent::__construct();
+		$this->queue('menuSetup');
+		$this->queue('menu');
+	}
+
+  function menuSetup() {
+
+    $prefix = array();
+    $suffix = array();
+
+    $this->addMenuItem('caption', 'Period');
+    $prefix[] = array('a', 'corp_stats', TRUE);
+    if($this->all_id) {
+      $prefix[] = array('all_id', $this->all_id, TRUE);
+    }
+    elseif($this->all_external_id) {
+      $prefix[] = array('all_ext_id', $this->all_external_id, TRUE);
+    }
+    $all_time_uri = edkURI::build(array_merge($prefix, array('daterange' => array('daterange', 'alltime', TRUE)), $suffix));
+    $this->addMenuItem('link', 'All time', $all_time_uri);
+    $weekly_uri = edkURI::build(array_merge($prefix,array('' => array('daterange', 'weekly', TRUE)), $suffix));
+    $this->addMenuItem('link', 'Weekly', $weekly_uri);
+    $monthly_uri = edkURI::build(array_merge($prefix, array('' => array('daterange', 'monthly', TRUE)), $suffix));
+    $this->addMenuItem('link', 'Monthly', $monthly_uri);
+    $yearly_uri = edkURI::build(array_merge($prefix, array('' => array('daterange', 'yearly', TRUE)), $suffix));
+    $this->addMenuItem('link', 'Yearly', $yearly_uri);
+
+    $next_title = '';
+    $prev_title = '';
+    $next_uri = '';
+    $prev_uri = '';
+    $prefix[] = array('daterange', $this->daterange, TRUE);
+    //var_dump($prefix);
+    switch($this->daterange) {
+      case 'weekly':
+        $next_week = ($this->week == 53) ? 1 : $this->week + 1;
+        $next_year = ($this->week == 53) ? $this->year + 1 : $this->year;
+        $prev_week = ($this->week == 1) ? 53 : $this->week - 1;
+        $prev_year = ($this->week == 1) ? $this->year - 1 : $this->year;
+        $prev_title = 'Previous Week';
+        $prev_uri = edkURI::build(array_merge($prefix, array('w' => array('w', $prev_week, TRUE), 'y' => array('y', $prev_year, TRUE)), $suffix));
+        if($next_year < kbdate('Y') || ($next_year == kbdate('Y') && $next_week <= kbdate('W'))) {
+          $next_title = 'Previous Week';
+          $next_uri = edkURI::build(array_merge($prefix, array('w' => array('w', $next_week, TRUE), 'y' => array('y', $next_year, TRUE)), $suffix));
         }
-
         break;
-
-}
-
-$url_ext = '';
-
-if (@$_GET['no_n00bs'] == 'true') {
-    $url_ext = '&no_n00bs=true';
-}
-
-$killrq = $daterange_month;
-$smarty->assign('killrq', $killrq);
-
-$smarty->assign('no_n00bs', (@$_GET['no_n00bs'] == 'true'));
-
-// append the content onto the end of $html
-$html .= $corpStats->generate();
-
-// make $html the content to display on the page
-$page->setContent($html);
-
-// create a menu box to display alltime/weekly/monthly/yearly links
-$menubox = new box('Menu');
-$menubox->setIcon('menu-item.gif');
-
-$tblx = (!empty($_GET['w']) ? '&w=' . (int)$_GET['w'] : '') . (!empty($_GET['m']) ?
-    '&m=' . (int)$_GET['m'] : '') . (!empty($_GET['y']) ? '&y=' . (int)$_GET['y'] :
-    '') . (!empty($_GET['daterange']) ? '&daterange=' . (string )$_GET['daterange'] :
-    '') . (!empty($_GET['order']) ? '&order=' . (string )$_GET['order'] : '');
-
-if (@$_GET['no_n00bs'] != 'true') {
-    $menubox->addOption('link', '<b>Remove</b> Noobship, Shuttle, Capsule',
-        '?a=corp_stats&no_n00bs=true' . $tblx);
-} else {
-    $menubox->addOption('link', '<b>Show</b> Noobship, Shuttle, Capsule',
-        '?a=corp_stats' . $tblx);
-}
-
-$menubox->addOption('caption', 'Corp Stats');
-$menubox->addOption('link', 'All-Time', '?a=corp_stats&amp;daterange=alltime' .
-    $url_ext);
-$menubox->addOption('link', 'Weekly', '?a=corp_stats&amp;daterange=weekly' . $url_ext);
-$menubox->addOption('link', 'Monthly', '?a=corp_stats&amp;daterange=monthly' . $url_ext);
-$menubox->addOption('link', 'Yearly', '?a=corp_stats&amp;daterange=yearly' . $url_ext);
-
-if ($daterange_year || $daterange_month || $daterange_week) {
-
-    $menubox->addOption('caption', 'Date Navigation');
-
-    //
-    if ($daterange_week) { // week(s) year = 53
-        $next_week = $week == 53 ? 1 : $week + 1;
-        $next_year = $week == 53 ? $year + 1 : $year;
-
-        $prev_week = $week == 1 ? 53 : $week - 1;
-        $prev_year = $week == 1 ? $year - 1 : $year;
-
-        $menubox->addOption('link', 'Previous Week',
-            "?a=corp_stats&amp;daterange=weekly&w={$prev_week}&y={$prev_year}" . $url_ext);
-
-        if (($next_year > (int)date('Y')) || (($next_year == (int)date('Y')) && ($next_week <=
-            (int)kbdate('W') && true))) {
-            $menubox->addOption('link', 'Next Week', "?a=corp_stats&amp;daterange=weekly&w={$next_week}&y={$next_year}" .
-                $url_ext);
+      case 'monthly':
+        $next_month = ($this->month == 12) ? 1 : $this->month + 1;
+        $next_year = ($this->month == 12) ? $this->year + 1 : $this->year;
+        $prev_month = ($this->month == 1) ? 12 : $this->month - 1;
+        $prev_year = ($this->month == 1) ? $this->year - 1 : $this->year;
+        $prev_title = 'Previous Month';
+        $prev_uri = edkURI::build(array_merge($prefix, array('m' => array('m', $prev_month, TRUE), 'y' => array('y', $prev_year, TRUE)), $suffix));
+        if ($next_year < kbdate('Y') || ($next_year == kbdate('Y') && $next_month <= kbdate('m'))) {
+          $next_title = 'Next Month';
+          $next_uri = edkURI::build(array_merge($prefix, array('m' => array('m', $next_month, TRUE), 'y' => array('y', $next_year, TRUE)), $suffix));
         }
+        break;
+      case 'yearly':
+        $next_year = $this->year + 1;
+        $prev_year = $this->year - 1;
+        $prev_title = 'Previous Year';
+        $prev_uri = edkURI::build(array_merge($prefix, array('y' => array('y', $prev_year, TRUE)), $suffix));
+        if($next_year <= kbdate('Y')) {
+          $next_title = 'Next Year';
+          $next_uri = edkURI::build(array_merge($prefix, array('y' => array('y', $next_year, TRUE)), $suffix));
+        }
+        break;
+    }
+    if($next_uri != '' || $prev_uri != '') {
+      $this->addMenuItem('caption', 'Date Navigation');
+      if($next_uri != '') {
+        $this->addMenuItem('link', $next_title, $next_uri);
+      }
+      if($prev_uri != '') {
+        $this->addMenuItem('link', $prev_title, $prev_uri);
+      }
     }
 
-    if ($daterange_month) {
-        $next_month = $month == 12 ? 1 : $month + 1;
-        $next_year = $month == 12 ? $year + 1 : $year;
 
-        $prev_month = $month == 1 ? 12 : $month - 1;
-        $prev_year = $month == 1 ? $year - 1 : $year;
+  }
 
-        $menubox->addOption('link', 'Previous Month',
-            "?a=corp_stats&amp;daterange=monthly&m={$prev_month}&y={$prev_year}" . $url_ext);
+	function addMenuItem($type, $name, $url = '') {
+		$this->menuOptions[] = array($type, $name, $url);
+  }
 
-        if (($next_year > (int)date('Y')) || (($next_year == (int)date('Y')) && ($next_month <=
-            (int)date('m') && true))) {
-            $menubox->addOption('link', 'Next Month',
-                "?a=corp_stats&amp;daterange=monthly&m={$next_month}&y={$next_year}" . $url_ext);
-        }
-    }
+	function menu() {
+		$menubox = new box('Corp Stats');
+		$menubox->setIcon('menu-item.gif');
+		foreach ($this->menuOptions as $options) {
+			if (isset($options[2])) {
+				$menubox->addOption($options[0], $options[1], $options[2]);
+      }
+      else {
+				$menubox->addOption($options[0], $options[1]);
+			}
+		}
+		return $menubox->generate();
+	}
 
-    if ($daterange_year) {
-        $next_year = $year + 1;
-        $prev_year = $year - 1;
+  function getDay() {
+    return $this->day;
+  }
 
-        //	if( $next_year >= date('Y') ) {
-        $menubox->addOption('link', 'Previous Year',
-            "?a=corp_stats&amp;daterange=yearly&y={$prev_year}" . $url_ext);
-        //	}
+  function getWeek() {
+    return $this->week;
+  }
 
-        if ($next_year <= (int)date('Y')) {
-            $menubox->addOption('link', 'Next Year', "?a=corp_stats&amp;daterange=yearly&y={$next_year}" .
-                $url_ext);
-        }
-    }
+  function getMonth() {
+    return $this->month;
+  }
+
+  function getYear() {
+    return $this->year;
+  }
+
+  function getDateRange() {
+    return $this->daterange;
+  }
 
 }
 
-$page->addContext($menubox->generate());
+$pageAssembly = new pCorpStats();
+event::call('corpstat_assembling', $pageAssembly);
+$html = $pageAssembly->assemble();
+$pageAssembly->page->setContent($html);
 
-$page->generate();
+$pageAssembly->context(); //This resets the queue and queues context items.
+event::call('corpstat_context_assembling', $pageAssembly);
+$contextHTML = $pageAssembly->assemble();
+$pageAssembly->page->addContext($contextHTML);
 
-?>
+$pageAssembly->page->generate();

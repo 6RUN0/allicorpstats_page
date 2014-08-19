@@ -4,35 +4,35 @@
 
 <table class="kb-table" width="99%" align="center" cellspacing="1">
  <tr class="kb-table-header">
-	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=nameasc">Corp Name</a></td>
+	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$nameasc_link}">Corp Name</a></td>
 	{if $showticker > 0}
-	<td class="kb-table-cell"align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=tickerasc">Ticker</a></td>
+	<td class="kb-table-cell"align="center"><a class="corp-stat-header" href="{$tickerasc_link}">Ticker</a></td>
 	{/if}
 	{if $showmembers > 0}
-	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=membersdesc">Members</a></td>
-	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=memberactsdesc">Active Members</a></td>
-	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=memberactprozsdesc">%</a></td>	
+	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$membersdesc_link}">Members</a></td>
+	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$memberactsdesc_link}">Active Members</a></td>
+	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$memberactprozsdesc_link}">%</a></td>	
 	{/if}
 	{if $showceo > 0}
-	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=ceodesc">CEO</a></td>
+	<td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$ceodesc_link}">CEO</a></td>
 	{/if}
 	{if $showhq > 0}
 	<td class="kb-table-cell" align="center">HQ</td>
 	{/if}
-  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=killsdesc">Kills</a></td>
+  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$killsdesc_link}">Kills</a></td>
 {if $killrq}  
-	<td {* {if $order eq 'killrq'}{$bgac}{/if} *} class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=killrq"><span style="white-space:nowrap;">Kill Rq.</span></a></td>
+	<td {* {if $order eq 'killrq'}{$bgac}{/if} *} class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$killrq_link}"><span style="white-space:nowrap;">Kill Rq.</span></a></td>
 {/if}
-  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=killiskdesc">ISK (B)</a></td>
-  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=lossesdesc">Losses</a></td>
-  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=lossiskdesc">ISK (B)</a></td>
-  <td class="kb-table-cell" align="center" colspan=2><a class="corp-stat-header" href="?a={$smarty.get.a}{if $smarty.get.daterange}&daterange={$smarty.get.daterange}{/if}{$ext_link}&order=effdesc">Efficiency</a></td>
+  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$killiskdesc_link}">ISK (B)</a></td>
+  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$lossesdesc_link}">Losses</a></td>
+  <td class="kb-table-cell" align="center"><a class="corp-stat-header" href="{$lossiskdesc_link}">ISK (B)</a></td>
+  <td class="kb-table-cell" align="center" colspan=2><a class="corp-stat-header" href="{$effdesc_link}">Efficiency</a></td>
  </tr>
  
 {cycle reset=true print=false name=ccl values="kb-table-row-even,kb-table-row-odd"}
 {foreach from=$membercorps item=i}
  <tr class="{cycle advance=false name=ccl}" onmouseover="this.className='kb-table-row-hover';"
-    onmouseout="this.className='{cycle name=ccl}';" onClick="window.location.href='?a=corp_detail&amp;crp_id={$i.corpID}';">
+    onmouseout="this.className='{cycle name=ccl}';" onClick="window.location.href='?a=corp_detail&amp;id={$i.corpID}';">
   <td class="kb-table-cell"><b>{$i.corpName}</b> <br> </td>
 	{if $showticker > 0}
 	<td class="kb-table-cell" align="center">{$i.ticker}</td>
