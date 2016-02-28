@@ -59,7 +59,6 @@ class AlliCorpStats {
             }
 
             // Check if corp is known to EDK DB, if not, add it. (hackign up to work with new classes in edk4)
-            $tempMyCorp->Corporation();
             $this->corpid = $tempMyCorp->lookup($myCorpAPI->getCorporationName());
             if($this->corpid === FALSE) {
               continue;
@@ -252,7 +251,6 @@ class AlliCorpStats {
             }
 
             // Check if corp is known to EDK DB, if not, add it.
-            $tempMyCorp->Corporation();
             $tempMyCorp->lookup($myCorpAPI->getCorporationName());
             if ($corp_id == 0) {
                 $tempMyCorp->add($myCorpAPI->getCorporationName(), $alliance, substr($corp['startDate'],
